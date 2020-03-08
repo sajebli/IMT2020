@@ -30,7 +30,7 @@
 #include <ql/methods/lattices/tree.hpp>
 #include <ql/instruments/dividendschedule.hpp>
 #include <ql/stochasticprocess.hpp>
-
+#include <iostream>
 namespace QuantLib {
 
     //! Binomial tree base class
@@ -39,6 +39,8 @@ namespace QuantLib {
     class ExtendedBinomialTree_2 : public Tree<T> {
       public:
         enum Branches { branches = 2 };
+
+
         ExtendedBinomialTree_2(
                         const boost::shared_ptr<StochasticProcess1D>& process,
                         Time end,
@@ -47,6 +49,11 @@ namespace QuantLib {
             x0_ = process->x0();
             dt_ = end/steps;
             driftPerStep_ = process->drift(0.0, x0_) * dt_;
+            count1=0;
+            count2=0;
+            count3=0;
+            count4=0;
+            
         }
         Size size(Size i) const {
             return i+1;
@@ -54,14 +61,40 @@ namespace QuantLib {
         Size descendant(Size, Size index, Size branch) const {
             return index + branch;
         }
+        ~ExtendedBinomialTree_2(){
+          Size widths[] = {45, 14, 14, 14};
+          std::cout 
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[3]) << std::left << "probUp"
+                << std::endl;
+          std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<this->count1
+                << std::setw(widths[2]) << std::left << this->count2
+                << std::setw(widths[3]) << std::left << this->count3
+                << std::setw(widths[3]) << std::left << this->count4
+                << std::endl;
+          // std::cout<<"count driftStep  :"<<this->count1;
+          //std::cout<<"count upStep  :"<<this->count2<<std::endl;
+          //std::cout<<"count dxStep  :"<<this->count3<<std::endl;
+          //std::cout<<"count probUp :"<<this->count4<<std::endl; 
+          
+        }
+      
       protected:
         //time dependent drift per step
         Real driftStep(Time driftTime) const {
+            (this->count1)++;
             return this->treeProcess_->drift(driftTime, x0_) * dt_;
         }
 
         Real x0_, driftPerStep_;
         Time dt_;
+        mutable int count1;
+        mutable int count2;
+        mutable int count3;
+        mutable int count4;
 
       protected:
         boost::shared_ptr<StochasticProcess1D> treeProcess_;
@@ -136,10 +169,12 @@ namespace QuantLib {
     class ExtendedJarrowRudd_2
         : public ExtendedEqualProbabilitiesBinomialTree_2<ExtendedJarrowRudd_2> {
       public:
+
         ExtendedJarrowRudd_2(const boost::shared_ptr<StochasticProcess1D>&,
                              Time end,
                              Size steps,
                              Real strike);
+                             
       protected:
         Real upStep(Time stepTime) const;
     };

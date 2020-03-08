@@ -22,7 +22,7 @@
 
 #include "extendedbinomialtree.hpp"
 #include <ql/math/distributions/binomialdistribution.hpp>
-
+#include <iostream>
 namespace QuantLib {
 
     ExtendedJarrowRudd_2::ExtendedJarrowRudd_2(
@@ -32,9 +32,11 @@ namespace QuantLib {
                                                         process, end, steps) {
         // drift removed
         up_ = process->stdDeviation(0.0, x0_, dt_);
+        //std::cout<<"here jarrow rudd"<<std::endl;
     }
 
     Real ExtendedJarrowRudd_2::upStep(Time stepTime) const {
+        (this->count2)++;
         return treeProcess_->stdDeviation(stepTime, x0_, dt_);
     }
 
@@ -55,10 +57,12 @@ namespace QuantLib {
     }
 
     Real ExtendedCoxRossRubinstein_2::dxStep(Time stepTime) const {
+        (this->count3)++;
         return this->treeProcess_->stdDeviation(stepTime, x0_, dt_);
     }
 
     Real ExtendedCoxRossRubinstein_2::probUp(Time stepTime) const {
+        (this->count4)++;
         return 0.5 + 0.5*this->driftStep(stepTime)/dxStep(stepTime);
     }
 
@@ -75,6 +79,7 @@ namespace QuantLib {
     }
 
     Real ExtendedAdditiveEQPBinomialTree_2::upStep(Time stepTime) const {
+        (this->count2)++;
         return (- 0.5 * this->driftStep(stepTime) + 0.5 *
             std::sqrt(4.0*this->treeProcess_->variance(stepTime, x0_, dt_)-
             3.0*this->driftStep(stepTime)*this->driftStep(stepTime)));
@@ -98,11 +103,13 @@ namespace QuantLib {
     }
 
     Real ExtendedTrigeorgis_2::dxStep(Time stepTime) const {
+        (this->count3)++;
         return std::sqrt(this->treeProcess_->variance(stepTime, x0_, dt_)+
             this->driftStep(stepTime)*this->driftStep(stepTime));
     }
 
     Real ExtendedTrigeorgis_2::probUp(Time stepTime) const {
+        (this->count4)++;
         return 0.5 + 0.5*this->driftStep(stepTime)/dxStep(stepTime);
     }
 
