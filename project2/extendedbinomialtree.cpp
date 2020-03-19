@@ -30,9 +30,11 @@ namespace QuantLib {
                         Time end, Size steps, Real)
     : ExtendedEqualProbabilitiesBinomialTree_2<ExtendedJarrowRudd_2>(
                                                         process, end, steps) {
-        // drift removed
+            
+        upStepCacheTest.setf(std::bind(&ExtendedJarrowRudd_2::upStep,this,std::placeholders::_1));
         up_ = process->stdDeviation(0.0, x0_, dt_);
-        //std::cout<<"here jarrow rudd"<<std::endl;
+        up_ = process->stdDeviation(0.0, x0_, dt_);
+        
     }
 
     Real ExtendedJarrowRudd_2::upStep(Time stepTime) const {
@@ -48,22 +50,25 @@ namespace QuantLib {
     : ExtendedEqualJumpsBinomialTree_2<ExtendedCoxRossRubinstein_2>(
                                                         process, end, steps) {
 
+
         dx_ = process->stdDeviation(0.0, x0_, dt_);
-        pu_ = 0.5 + 0.5*this->driftStep(0.0)/dx_;
+        dxStepCacheTest.setf(std::bind(&ExtendedCoxRossRubinstein_2::dxStep,this,std::placeholders::_1));
+        probUpCacheTest.setf(std::bind(&ExtendedCoxRossRubinstein_2::probUp,this,std::placeholders::_1));
+        pu_ = 0.5 + 0.5*this->driftStepCacheTest(0.0)/dx_;
         pd_ = 1.0 - pu_;
 
         QL_REQUIRE(pu_<=1.0, "negative probability");
         QL_REQUIRE(pu_>=0.0, "negative probability");
     }
 
-    Real ExtendedCoxRossRubinstein_2::dxStep(Time stepTime) const {
+    Real ExtendedCoxRossRubinstein_2::dxStep(Time stepTime) const { 
         (this->count3)++;
         return this->treeProcess_->stdDeviation(stepTime, x0_, dt_);
     }
 
     Real ExtendedCoxRossRubinstein_2::probUp(Time stepTime) const {
         (this->count4)++;
-        return 0.5 + 0.5*this->driftStep(stepTime)/dxStep(stepTime);
+        return 0.5 + 0.5*this->driftStepCacheTest(stepTime)/this->dxStepCacheTest(stepTime);
     }
 
 
@@ -72,17 +77,18 @@ namespace QuantLib {
                         Time end, Size steps, Real)
     : ExtendedEqualProbabilitiesBinomialTree_2<ExtendedAdditiveEQPBinomialTree_2>(
                                                         process, end, steps) {
-
-          up_ = - 0.5 * this->driftStep(0.0) + 0.5 *
+                                                            
+            upStepCacheTest.setf(std::bind(&ExtendedAdditiveEQPBinomialTree_2::upStep,this,std::placeholders::_1));
+            up_ = - 0.5 * this->driftStepCacheTest(0.0) + 0.5 *
             std::sqrt(4.0*process->variance(0.0, x0_, dt_)-
-                      3.0*this->driftStep(0.0)*this->driftStep(0.0));
+                      3.0*this->driftStepCacheTest(0.0)*this->driftStepCacheTest(0.0));
     }
 
     Real ExtendedAdditiveEQPBinomialTree_2::upStep(Time stepTime) const {
         (this->count2)++;
-        return (- 0.5 * this->driftStep(stepTime) + 0.5 *
+        return (- 0.5 * this->driftStepCacheTest(stepTime) + 0.5 *
             std::sqrt(4.0*this->treeProcess_->variance(stepTime, x0_, dt_)-
-            3.0*this->driftStep(stepTime)*this->driftStep(stepTime)));
+            3.0*this->driftStepCacheTest(stepTime)*this->driftStepCacheTest(stepTime)));
     }
 
 
@@ -93,9 +99,11 @@ namespace QuantLib {
                         Time end, Size steps, Real)
     : ExtendedEqualJumpsBinomialTree_2<ExtendedTrigeorgis_2>(process, end, steps) {
 
+        dxStepCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::dxStep,this,std::placeholders::_1));
+        probUpCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::probUp,this,std::placeholders::_1));
         dx_ = std::sqrt(process->variance(0.0, x0_, dt_)+
-            this->driftStep(0.0)*this->driftStep(0.0));
-        pu_ = 0.5 + 0.5*this->driftStep(0.0)/this->dxStep(0.0);
+            this->driftStepCacheTest(0.0)*this->driftStepCacheTest(0.0));
+        pu_ = 0.5 + 0.5*this->driftStepCacheTest(0.0)/this->dxStepCacheTest(0.0);
         pd_ = 1.0 - pu_;
 
         QL_REQUIRE(pu_<=1.0, "negative probability");
@@ -105,12 +113,12 @@ namespace QuantLib {
     Real ExtendedTrigeorgis_2::dxStep(Time stepTime) const {
         (this->count3)++;
         return std::sqrt(this->treeProcess_->variance(stepTime, x0_, dt_)+
-            this->driftStep(stepTime)*this->driftStep(stepTime));
+            this->driftStepCacheTest(stepTime)*this->driftStepCacheTest(stepTime));
     }
 
     Real ExtendedTrigeorgis_2::probUp(Time stepTime) const {
         (this->count4)++;
-        return 0.5 + 0.5*this->driftStep(stepTime)/dxStep(stepTime);
+        return 0.5 + 0.5*this->driftStepCacheTest(stepTime)/dxStepCacheTest(stepTime);
     }
 
 
@@ -119,9 +127,9 @@ namespace QuantLib {
                         Time end, Size steps, Real)
     : ExtendedBinomialTree_2<ExtendedTian_2>(process, end, steps) {
 
-        Real q = std::exp(process->variance(0.0, x0_, dt_));
 
-        Real r = std::exp(this->driftStep(0.0))*std::sqrt(q);
+        Real q = std::exp(process->variance(0.0, x0_, dt_));
+        Real r = std::exp(this->driftStepCacheTest(0.0))*std::sqrt(q);
 
         up_ = 0.5 * r * q * (q + 1 + std::sqrt(q * q + 2 * q - 3));
         down_ = 0.5 * r * q * (q + 1 - std::sqrt(q * q + 2 * q - 3));
@@ -140,7 +148,7 @@ namespace QuantLib {
     Real ExtendedTian_2::underlying(Size i, Size index) const {
         Time stepTime = i*this->dt_;
         Real q = std::exp(this->treeProcess_->variance(stepTime, x0_, dt_));
-        Real r = std::exp(this->driftStep(stepTime))*std::sqrt(q);
+        Real r = std::exp(this->driftStepCacheTest(stepTime))*std::sqrt(q);
 
         Real up = 0.5 * r * q * (q + 1 + std::sqrt(q * q + 2 * q - 3));
         Real down = 0.5 * r * q * (q + 1 - std::sqrt(q * q + 2 * q - 3));
@@ -152,7 +160,7 @@ namespace QuantLib {
     Real ExtendedTian_2::probability(Size i, Size, Size branch) const {
         Time stepTime = i*this->dt_;
         Real q = std::exp(this->treeProcess_->variance(stepTime, x0_, dt_));
-        Real r = std::exp(this->driftStep(stepTime))*std::sqrt(q);
+        Real r = std::exp(this->driftStepCacheTest(stepTime))*std::sqrt(q);
 
         Real up = 0.5 * r * q * (q + 1 + std::sqrt(q * q + 2 * q - 3));
         Real down = 0.5 * r * q * (q + 1 - std::sqrt(q * q + 2 * q - 3));
@@ -174,8 +182,8 @@ namespace QuantLib {
         QL_REQUIRE(strike>0.0, "strike " << strike << "must be positive");
         Real variance = process->variance(0.0, x0_, end);
 
-        Real ermqdt = std::exp(this->driftStep(0.0) + 0.5*variance/oddSteps_);
-        Real d2 = (std::log(x0_/strike) + this->driftStep(0.0)*oddSteps_ ) /
+        Real ermqdt = std::exp(this->driftStepCacheTest(0.0) + 0.5*variance/oddSteps_);
+        Real d2 = (std::log(x0_/strike) + this->driftStepCacheTest(0.0)*oddSteps_ ) /
             std::sqrt(variance);
 
         pu_ = PeizerPrattMethod2Inversion(d2, oddSteps_);
@@ -190,8 +198,8 @@ namespace QuantLib {
     Real ExtendedLeisenReimer_2::underlying(Size i, Size index) const {
         Time stepTime = i*this->dt_;
         Real variance = this->treeProcess_->variance(stepTime, x0_, end_);
-        Real ermqdt = std::exp(this->driftStep(stepTime) + 0.5*variance/oddSteps_);
-        Real d2 = (std::log(x0_/strike_) + this->driftStep(stepTime)*oddSteps_ ) /
+        Real ermqdt = std::exp(this->driftStepCacheTest(stepTime) + 0.5*variance/oddSteps_);
+        Real d2 = (std::log(x0_/strike_) + this->driftStepCacheTest(stepTime)*oddSteps_ ) /
             std::sqrt(variance);
 
         Real pu = PeizerPrattMethod2Inversion(d2, oddSteps_);
@@ -207,7 +215,7 @@ namespace QuantLib {
     Real ExtendedLeisenReimer_2::probability(Size i, Size, Size branch) const {
         Time stepTime = i*this->dt_;
         Real variance = this->treeProcess_->variance(stepTime, x0_, end_);
-        Real d2 = (std::log(x0_/strike_) + this->driftStep(stepTime)*oddSteps_ ) /
+        Real d2 = (std::log(x0_/strike_) + this->driftStepCacheTest(stepTime)*oddSteps_ ) /
             std::sqrt(variance);
 
         Real pu = PeizerPrattMethod2Inversion(d2, oddSteps_);
@@ -249,8 +257,8 @@ namespace QuantLib {
         QL_REQUIRE(strike>0.0, "strike " << strike << "must be positive");
         Real variance = process->variance(0.0, x0_, end);
 
-        Real ermqdt = std::exp(this->driftStep(0.0) + 0.5*variance/oddSteps_);
-        Real d2 = (std::log(x0_/strike) + this->driftStep(0.0)*oddSteps_ ) /
+        Real ermqdt = std::exp(this->driftStepCacheTest(0.0) + 0.5*variance/oddSteps_);
+        Real d2 = (std::log(x0_/strike) + this->driftStepCacheTest(0.0)*oddSteps_ ) /
             std::sqrt(variance);
 
         pu_ = computeUpProb((oddSteps_-1.0)/2.0,d2 );
@@ -263,8 +271,8 @@ namespace QuantLib {
     Real ExtendedJoshi4_2::underlying(Size i, Size index) const {
         Time stepTime = i*this->dt_;
         Real variance = this->treeProcess_->variance(stepTime, x0_, end_);
-        Real ermqdt = std::exp(this->driftStep(stepTime) + 0.5*variance/oddSteps_);
-        Real d2 = (std::log(x0_/strike_) + this->driftStep(stepTime)*oddSteps_ ) /
+        Real ermqdt = std::exp(this->driftStepCacheTest(stepTime) + 0.5*variance/oddSteps_);
+        Real d2 = (std::log(x0_/strike_) + this->driftStepCacheTest(stepTime)*oddSteps_ ) /
             std::sqrt(variance);
 
         Real pu = computeUpProb((oddSteps_-1.0)/2.0,d2 );
@@ -279,7 +287,7 @@ namespace QuantLib {
     Real ExtendedJoshi4_2::probability(Size i, Size, Size branch) const {
         Time stepTime = i*this->dt_;
         Real variance = this->treeProcess_->variance(stepTime, x0_, end_);
-        Real d2 = (std::log(x0_/strike_) + this->driftStep(stepTime)*oddSteps_ ) /
+        Real d2 = (std::log(x0_/strike_) + this->driftStepCacheTest(stepTime)*oddSteps_ ) /
             std::sqrt(variance);
 
         Real pu = computeUpProb((oddSteps_-1.0)/2.0,d2 );

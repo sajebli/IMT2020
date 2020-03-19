@@ -23,6 +23,7 @@
 #include <iostream>
 
 #include "extendedbinomialtree.hpp"
+
 #include <ql/experimental/lattices/extendedbinomialtree.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvariancecurve.hpp>
 
@@ -254,15 +255,7 @@ int main(int, char*[]) {
         americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
             new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcess,
                                                                     timeSteps)));
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //         << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //         << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //         << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //         << std::endl;
-
-
-
-
+       
         std::cout<<method<< std::endl;
 
         std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
@@ -275,14 +268,10 @@ int main(int, char*[]) {
         std::cout <<"option price:    "<<price<< std::endl;
         std::cout << std::endl;
 
-
         std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
         price=americanOption.NPV();
         std::cout <<"option price:    "<<price<< std::endl;
         std::cout << std::endl;
-
-        
-        
 
         seconds = timer.elapsed();
         std::cout << " \nRun completed in ";
