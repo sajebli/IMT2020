@@ -8,7 +8,7 @@
 
 */
 
-#ifndef cache_hpp s
+#ifndef cache_hpp 
 #define cache_hpp 
 #include <functional>
 #include <map>
@@ -18,7 +18,7 @@ public :
     
     Cache() { }
 
-    Y operator ()(X key) const {
+    Y operator ()(X key) {
         auto index = _map.find (key ); 
         if(index != _map.end()){
             return _map[key] ;
@@ -27,6 +27,8 @@ public :
         _map[key] = result;
         return result;
     }
+
+    
     // this method sets the cached function f with a given function f_
     void setf(const std::function<Y(X)> _f){ 
         f=_f;

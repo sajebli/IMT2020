@@ -24,9 +24,9 @@
 
 #include "extendedbinomialtree.hpp"
 
-#include <ql/experimental/lattices/extendedbinomialtree.hpp>
+// #include <ql/experimental/lattices/extendedbinomialtree.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvariancecurve.hpp>
-
+#include <ql/termstructures/yield/zerocurve.hpp>
 using namespace QuantLib;
 
 #if defined(QL_ENABLE_SESSIONS)
@@ -72,11 +72,7 @@ int main(int, char*[]) {
         std::cout << std::endl;
 
         // write column headings
-        Size widths[] = {45, 14, 14, 14};
-        std::cout << std::setw(widths[0]) << std::left << "Method"
-                << std::setw(widths[1]) << std::left << "European"
-                << std::setw(widths[2]) << std::left << "Bermudan"
-                << std::setw(widths[3]) << std::left << "American" << std::endl;
+        Size widths[] = {45, 14, 14, 14 , 14};
 
         std::vector<Date> exerciseDates;
         for (Integer i = 1; i <= 4; i++)
@@ -109,350 +105,395 @@ int main(int, char*[]) {
             new BlackScholesMertonProcess(underlyingH, flatDividendTS,
                                         flatTermStructure, flatVolTS));
 
+
+        // Non constant yield curve
+        std::vector<Date> dates(5);
+        dates[0] = settlementDate;
+        dates[1] = settlementDate + Period(1,Years);
+        dates[2] = settlementDate + Period(2,Years);
+        dates[3] = settlementDate + Period(3,Years);
+        dates[4] = settlementDate + Period(4,Years);
+
+        std::vector<Rate> rates(5);
+        rates[0] = 0.03;
+        rates[1] = 0.05; 
+        rates[2] = 0.06;
+        rates[3] =0.075; 
+        rates[4] = 0.05;
+        
+        Handle<YieldTermStructure> termStructure(
+            ext::shared_ptr<YieldTermStructure>(
+                new ZeroCurve(dates, rates, dayCounter)));
+
+        // Non constant volatility curve
+        std::vector<Date> volDates(3);
+        volDates[0] = settlementDate + Period(4,Months);
+        volDates[1] = settlementDate + Period(8,Months);
+        volDates[2] = settlementDate + Period(1,Years);
+
+        std::vector<Volatility> volatilities(3);
+        volatilities[0] = 0.018;
+        volatilities[1] = 0.022; 
+        volatilities[2] = 0.034;
+        Handle<BlackVolTermStructure> volTS(
+            ext::shared_ptr<BlackVolTermStructure>(new BlackVarianceCurve(
+                settlementDate , volDates ,  volatilities , dayCounter)));
+
+        // Definition of non constant BSM
+        ext::shared_ptr<BlackScholesMertonProcess> nonConstBSMProcess(
+            new BlackScholesMertonProcess(underlyingH, flatDividendTS,
+                                        termStructure, volTS));
+
+        std::vector<ext::shared_ptr<BlackScholesMertonProcess>> bsmProcesses(2);
+        bsmProcesses[0] = bsmProcess;
+        bsmProcesses[1] = nonConstBSMProcess;
+        std::string bsmProcessType[] = {"Constatnt BSM Process" , "Non Constant BSM Process"};
+        
         // options
         VanillaOption europeanOption(payoff, europeanExercise);
         VanillaOption bermudanOption(payoff, bermudanExercise);
         VanillaOption americanOption(payoff, americanExercise);
 
-        // Analytic formulas:
-
-        // Black-Scholes for European
-    //     method = "Black-Scholes";
-    //     europeanOption.setPricingEngine(
-    //         ext::shared_ptr<PricingEngine>(new AnalyticEuropeanEngine(bsmProcess)));
-    // //    americanOption.setPricingEngine(
-    // //    ext::shared_ptr<PricingEngine>(new AnalyticEuropeanEngine(bsmProcess)));
-    // //    bermudanOption.setPricingEngine(
-    // //      ext::shared_ptr<PricingEngine>(new AnalyticEuropeanEngine(bsmProcess)));
-    //     std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-    //             << std::setw(widths[1]) << std::left << europeanOption.NPV()
-    //             << std::setw(widths[2]) << std::left << "N/A"  //bermudanOption.NPV()
-    //             << std::setw(widths[3]) << std::left << "N/A" << std::endl;//american
-
-    // Finite differences
-        Size timeSteps = 500;
         timer.restart();
         double seconds = timer.elapsed();
         std::cout << " \nStart in ";
         std::cout << seconds << " s\n" << std::endl;
-        // method = "Finite differences";
-        // europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-        //          new FDEuropeanEngine<CrankNicolson>(bsmProcess,
-        //                                              timeSteps,timeSteps-1)));
-        // bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-        //          new FDBermudanEngine<CrankNicolson>(bsmProcess,
-        //                                              timeSteps,timeSteps-1)));
-        // americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-        //          new FDAmericanEngine<CrankNicolson>(bsmProcess,
-        //                                              timeSteps,timeSteps-1)));
-        // std::cout << std::setw(widths[0]) << std::left << method
-        //           << std::fixed
-        //           << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //           << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //           << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //           << std::endl;
 
-        // Binomial method: Jarrow-Rudd
+        std::vector<Size> timeStepsVect(3);
+        timeStepsVect[1] = 500;
+        timeStepsVect[2] = 1000;
+        timeStepsVect[3] = 1500;
+        
+
         method = "Extended Binomial Jarrow-Rudd";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcess, timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcess, timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcess, timeSteps)));
-       
-        /*std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-                << std::setw(widths[1]) << std::left <<"  "
-                << std::setw(widths[2]) << std::left << " "
-                << std::setw(widths[3]) << std::left << " "
-                << std::endl;*/
-        std::cout<<method<< std::endl;
+        std::cout <<  method << std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeStep = timeStepsVect[i];
+            std::cout << "Time steps : " << timeStep << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcesses[j], timeStep)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcesses[j], timeStep)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJarrowRudd_2>(bsmProcesses[j], timeStep)));
+                
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
 
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
 
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+            
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
         
-        
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-
-        timer.restart();
-        
-
-
-
-
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
+        std::cout << std::endl;
 
         method = "Extended Binomial Cox-Ross-Rubinstein";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcess,
-                                                                timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcess,
-                                                                timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcess,
-                                                                timeSteps)));
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //           << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //           << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //           << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //           << std::endl;
-        
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcesses[j],
+                                                                        timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcesses[j],
+                                                                        timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedCoxRossRubinstein_2>(bsmProcesses[j],
+                                                                        timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<   "*******************************************************************************************************************************" << std::endl;
         std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-
-        
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
-
         
 
         // Binomial method: Additive equiprobabilities
         method = "Extended Additive equiprobabilities";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcess,
-                                                                    timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcess,
-                                                                    timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcess,
-                                                                    timeSteps)));
-       
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcesses[j],
+                                                                            timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcesses[j],
+                                                                            timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedAdditiveEQPBinomialTree_2>(bsmProcesses[j],
+                                                                            timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
         std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
 
         // Binomial method: Binomial Trigeorgis
         method = "Extended Binomial Trigeorgis";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcess, timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcess, timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcess, timeSteps)));
-
-
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //         << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //         << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //         << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //         << std::endl;
-
-
-
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcesses[j], timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcesses[j], timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTrigeorgis_2>(bsmProcesses[j], timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
         std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
 
         // Binomial method: Binomial Tian
         method = "Extended Binomial Tian";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTian_2>(bsmProcess, timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTian_2>(bsmProcess, timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedTian_2>(bsmProcess, timeSteps)));
-
-
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //         << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //         << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //         << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //         << std::endl;
-
-
-
-
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTian_2>(bsmProcesses[j], timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTian_2>(bsmProcesses[j], timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedTian_2>(bsmProcesses[j], timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
         std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
 
         // Binomial method: Binomial Leisen-Reimer
         method = "Extended Binomial Leisen-Reimer";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcess,
-                                                            timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcess,
-                                                            timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcess,
-                                                            timeSteps)));
-
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //         << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //         << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //         << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //         << std::endl;
-
-
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcesses[j],
+                                                                    timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcesses[j],
+                                                                    timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedLeisenReimer_2>(bsmProcesses[j],
+                                                                    timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
+
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
         std::cout << std::endl;
-
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
-
-
-
-
-
 
         // Binomial method: Binomial Joshi
         method = "Extended Binomial Joshi";
-        europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcess, timeSteps)));
-        bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcess, timeSteps)));
-        americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
-            new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcess, timeSteps)));
-        // std::cout << std::setw(widths[0]) << std::left << method << std::fixed
-        //         << std::setw(widths[1]) << std::left << europeanOption.NPV()
-        //         << std::setw(widths[2]) << std::left << bermudanOption.NPV()
-        //         << std::setw(widths[3]) << std::left << americanOption.NPV()
-        //         << std::endl;
-
-        
-
         std::cout<<method<< std::endl;
+        for(int i=1; i<=3; i++){
+            std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
+                << std::setw(widths[1]) << std::left <<"driftStep"
+                << std::setw(widths[2]) << std::left << "upStep"
+                << std::setw(widths[3]) << std::left << "dxStep"
+                << std::setw(widths[4]) << std::left << "probUp"
+                << std::setw(widths[4]) << std::left << "Option Price"
+                << std::endl;
+            Size timeSteps = timeStepsVect[i];
+            std::cout << "Time steps : " << timeSteps << std::endl;
+            std::cout << std::endl;
+            for(int j=0; j<=1; j++){
+                std::cout << bsmProcessType[j]<< std::endl;
+                europeanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcesses[j], timeSteps)));
+                bermudanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcesses[j], timeSteps)));
+                americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+                    new BinomialVanillaEngine<ExtendedJoshi4_2>(bsmProcesses[j], timeSteps)));
 
-        std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
-        price=europeanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "European" << std::fixed;
+                price=europeanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
 
-        std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
-        price=bermudanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
+                std::cout<<std::setw(widths[0]) << std::left << "Bermudan" << std::fixed;
+                price=bermudanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
 
+                std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
+                price=americanOption.NPV();
+                std::cout << std::setw(widths[4]) << std::left << price << std::endl;
 
-        std::cout<<std::setw(widths[0]) << std::left << "American" << std::fixed;
-        price=americanOption.NPV();
-        std::cout <<"option price:    "<<price<< std::endl;
-        std::cout << std::endl;
-
-
-
-        seconds = timer.elapsed();
-        std::cout << " \nRun completed in ";
-        std::cout << seconds << " s\n" << std::endl;
-        std::cout <<  " ***********************************************************************" << std::endl;
-        timer.restart();
+                seconds = timer.elapsed();
+                std::cout << " \nRun completed in ";
+                std::cout << seconds << " s\n" << std::endl;
+                std::cout <<  "                              --------------------------------------------------------------------" << std::endl;
+                timer.restart();
+            }
+        }
+        std::cout <<  "*******************************************************************************************************************************" << std::endl;
+        
         return 0;
         
 

@@ -34,15 +34,13 @@
 #include <functional>
 #include "cache.hpp"
 namespace QuantLib {
-
     //! Binomial tree base class
     /*! \ingroup lattices */
     template <class T>
     class ExtendedBinomialTree_2 : public Tree<T> {
       public:
+        
         enum Branches { branches = 2 };
-
-
         ExtendedBinomialTree_2(
                         const boost::shared_ptr<StochasticProcess1D>& process,
                         Time end,
@@ -65,19 +63,13 @@ namespace QuantLib {
             return index + branch;
         }
         ~ExtendedBinomialTree_2(){
-          Size widths[] = {45, 14, 14, 14};
+          Size widths[] = {45, 14, 14, 14,14};
           std::cout 
-                << std::setw(widths[1]) << std::left <<"driftStep"
-                << std::setw(widths[2]) << std::left << "upStep"
-                << std::setw(widths[3]) << std::left << "dxStep"
-                << std::setw(widths[3]) << std::left << "probUp"
-                << std::endl;
-          std::cout << std::setw(widths[0]) << std::left << "    " << std::fixed
                 << std::setw(widths[1]) << std::left <<this->count1
                 << std::setw(widths[2]) << std::left << this->count2
                 << std::setw(widths[3]) << std::left << this->count3
-                << std::setw(widths[3]) << std::left << this->count4
-                << std::endl;
+                << std::setw(widths[4]) << std::left << this->count4;
+                //<< std::endl;
           
         }
       
@@ -87,14 +79,12 @@ namespace QuantLib {
             (this->count1)++;
             return this->treeProcess_->drift(driftTime, x0_) * dt_;
         }
-
         Real x0_, driftPerStep_;
         Time dt_;
-        
-        Cache<Time,Real> driftStepCacheTest;
-        Cache<Time,Real> dxStepCacheTest;
-        Cache<Time,Real> probUpCacheTest;
-        Cache<Time,Real> upStepCacheTest;
+        mutable Cache<Time,Real> driftStepCacheTest;
+        mutable Cache<Time,Real> dxStepCacheTest;
+        mutable Cache<Time,Real> probUpCacheTest;
+        mutable Cache<Time,Real> upStepCacheTest;
        
         mutable int count1;
         mutable int count2;

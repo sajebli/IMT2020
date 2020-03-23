@@ -31,7 +31,7 @@ namespace QuantLib {
     : ExtendedEqualProbabilitiesBinomialTree_2<ExtendedJarrowRudd_2>(
                                                         process, end, steps) {
             
-        upStepCacheTest.setf(std::bind(&ExtendedJarrowRudd_2::upStep,this,std::placeholders::_1));
+        upStepCacheTest.setf(std::bind(&ExtendedJarrowRudd_2::upStep,this,std::placeholders::_1) );
         up_ = process->stdDeviation(0.0, x0_, dt_);
         up_ = process->stdDeviation(0.0, x0_, dt_);
         
@@ -99,8 +99,8 @@ namespace QuantLib {
                         Time end, Size steps, Real)
     : ExtendedEqualJumpsBinomialTree_2<ExtendedTrigeorgis_2>(process, end, steps) {
 
-        dxStepCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::dxStep,this,std::placeholders::_1));
-        probUpCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::probUp,this,std::placeholders::_1));
+        dxStepCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::dxStep,this,std::placeholders::_1) );
+        probUpCacheTest.setf(std::bind(&ExtendedTrigeorgis_2::probUp,this,std::placeholders::_1) );
         dx_ = std::sqrt(process->variance(0.0, x0_, dt_)+
             this->driftStepCacheTest(0.0)*this->driftStepCacheTest(0.0));
         pu_ = 0.5 + 0.5*this->driftStepCacheTest(0.0)/this->dxStepCacheTest(0.0);
